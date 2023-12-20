@@ -17,7 +17,12 @@ find_package(RapidJSON)
 add_executable(yeelight_backend main.cpp
         MiioDevice.h
         YeeLight.cpp
-        YeeLight.h)
+        YeeLight.h
+        YeeLightDBusService.cpp
+        YeeLightDBusService.h
+        MiCloudClient.cpp
+        MiCloudClient.h
+)
 link_directories(lib)
 target_link_libraries(yeelight_backend
         Qt5::Core
