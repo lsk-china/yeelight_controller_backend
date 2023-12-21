@@ -39,9 +39,9 @@ private:
 
     QString loginStep1(QString userID);
     QString loginStep2(QString sign, QString username, QString password);
-    QString loginStep3(QString region);
+    int loginStep3(QString region);
     QString countryToServerURL(QString region);
-    QJsonObject get(QString url, std::initializer_list<QPair<QString, QString>> args);
+    QJsonObject get(QString url, std::initializer_list<QPair<QString, QString>> args, QString contentType="");
     QJsonObject post(QString url, std::initializer_list<QPair<QString, QString>> args);
 };
 

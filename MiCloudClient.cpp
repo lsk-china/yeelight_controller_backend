@@ -60,10 +60,43 @@ QString MiCloudClient::loginStep2(QString sign, QString username, QString passwo
         };
     }
     QJsonObject response = post("https://account.xiaomi.com/pass/serviceLoginAuth2", params);
+    if (!success || response.find("result")->toString() != "ok") {
+        return {};
+    }
+    this->userID = response.find("userId")->toString();
+    this->ssecurity = response.find("ssecurity")->toString();
+    this->cuserId = response.find("cUserId")->toString();
+    this->passToken = response.find("passToken")->toString();
+    return response.find("location")->toString();
 }
 
-QString MiCloudClient::loginStep3(QString region) {
-    return QString();
+int MiCloudClient::loginStep3(QString region) {
+    QNetworkRequest request((QUrl(region)));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+    QEventLoop *eventLoop = new QEventLoop(this);
+    QNetworkReply* reply = this->networkAccessManager->get(request);
+    connect(reply, &QNetworkReply::finished, eventLoop, &QEventLoop::quit);
+    eventLoop->exec();
+    delete eventLoop;
+    if (reply->error() != QNetworkReply::NoError) {
+        switch (reply->error()) {
+            case QNetworkReply::ContentAccessDenied:
+                delete reply;
+                return -4;
+            default:
+                delete reply;
+                return -5;
+        }
+    }
+    delete reply;
+    QList<QNetworkCookie> cookies = this->networkAccessManager->cookieJar()->cookiesForUrl(QUrl(region));
+    for (QNetworkCookie cookie : cookies) {
+        if (cookie.name() == "serviceToken") {
+            this->serviceToken = cookie.value();
+            return 0;
+        }
+    }
+    return -3;
 }
 
 QString MiCloudClient::countryToServerURL(QString region) {
@@ -75,24 +108,32 @@ int MiCloudClient::login(QString userID, QString password, QString region) {
     if (!success) {
         return -1;
     }
+    success = false;
     QString location;
     if (!sign.startsWith("http")) {
         location = loginStep2(sign, userID, password);
+        if (!success) {
+            return -2;
+        }
     } else {
         location = sign;
     }
-    return 0;
+    success = false;
+    return loginStep3(location);
 }
 
 QList<DeviceInfo> MiCloudClient::queryDevices(QString region) {
     return QList<DeviceInfo>();
 }
 
-QJsonObject MiCloudClient::get(QString url,  std::initializer_list<QPair<QString, QString>> args) {
+QJsonObject MiCloudClient::get(QString url,  std::initializer_list<QPair<QString, QString>> args, QString contentType) {
     QJsonDocument doc;
     QUrl qUrl(url);
     qUrl.setQuery(QUrlQuery(args));
     QNetworkRequest request(qUrl);
+    if (contentType != "") {
+        request.setHeader(QNetworkRequest::ContentTypeHeader, contentType);
+    }
     QNetworkReply *reply = networkAccessManager->get(request);
     auto *eventLoop = new QEventLoop();
     connect(reply, &QNetworkReply::finished, eventLoop, &QEventLoop::quit);
